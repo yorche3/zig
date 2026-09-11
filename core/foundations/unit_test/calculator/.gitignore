@@ -1,0 +1,10 @@
+zig-out/
+.zig-cache/
+zig-cache/
+calculator_test
+calculator_test.exe
+*.o
+*.a
+*.so
+*.dylib
+*.dll
