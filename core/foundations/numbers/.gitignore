@@ -1,0 +1,10 @@
+zig-out/
+.zig-cache/
+zig-cache/
+numbers
+numbers.exe
+*.o
+*.a
+*.so
+*.dylib
+*.dll
