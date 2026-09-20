@@ -9,6 +9,7 @@ Proyectos en **Zig**, con programas independientes ejecutados mediante `zig run`
 | Módulo | Descripción |
 | ------ | ----------- |
 | [`core/foundations/`](core/foundations/) | **Fase 0 — Fundamentos**: `helloworld`, `hellouser`, `unit_test/calculator`, `numbers` |
+| [`core/algorithms/`](core/algorithms/) | **Fase 1 — Algoritmos Puros**: `naive_sort` |
 
 ---
 
@@ -32,6 +33,10 @@ zig build test --summary all
 
 # Numbers tests
 cd ../../numbers
+zig build test --summary all
+
+# Naive Sort tests
+cd ../algorithms/naive_sort
 zig build test --summary all
 ```
 
