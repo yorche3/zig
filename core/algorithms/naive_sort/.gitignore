@@ -1,0 +1,10 @@
+zig-out/
+.zig-cache/
+zig-cache/
+naive_sort
+naive_sort.exe
+*.o
+*.a
+*.so
+*.dylib
+*.dll
