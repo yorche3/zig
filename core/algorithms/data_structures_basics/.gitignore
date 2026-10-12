@@ -1,0 +1,10 @@
+zig-out/
+.zig-cache/
+zig-cache/
+data_structures_basics
+data_structures_basics.exe
+*.o
+*.a
+*.so
+*.dylib
+*.dll

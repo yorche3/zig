@@ -9,7 +9,7 @@ Proyectos en **Zig**, con programas independientes ejecutados mediante `zig run`
 | Módulo | Descripción |
 | ------ | ----------- |
 | [`core/foundations/`](core/foundations/) | **Fase 0 — Fundamentos**: `helloworld`, `hellouser`, `unit_test/calculator`, `numbers` |
-| [`core/algorithms/`](core/algorithms/) | **Fase 1 — Algoritmos Puros**: `naive_sort` |
+| [`core/algorithms/`](core/algorithms/) | **Fase 1 — Algoritmos Puros**: `naive_sort`, `data_structures_basics` |
 
 ---
 
@@ -38,6 +38,10 @@ zig build test --summary all
 # Naive Sort tests
 cd ../algorithms/naive_sort
 zig build test --summary all
+
+# Data Structures Basics tests
+cd ../data_structures_basics
+zig build test --summary all
 ```
 
 ---
@@ -46,7 +50,7 @@ zig build test --summary all
 
 | Herramienta | Uso | Verificación |
 | ----------- | --- | ------------ |
-| Zig 0.16.0 | Compilador y runtime | `zig version` |
+| Zig 0.17.0 | Compilador y runtime | `zig version` |
 | `std.testing` | Framework de pruebas integrado | Incluido en Zig |
 | `build.zig` | Orquestación de build y tests | `zig build test --summary all` |
 
@@ -59,7 +63,7 @@ zig version
 Salida verificada:
 
 ```text
-0.16.0
+0.17.0
 ```
 
 ---
