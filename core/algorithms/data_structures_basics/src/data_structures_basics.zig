@@ -9,20 +9,24 @@
 // Las tres estructuras piden un `Allocator` en `init` y lo sueltan en `deinit`,
 // porque en Zig la celda se reserva en el montón.
 //
-// Adecuaciones de salida de centinela (todavía no hay fallos reales):
-//   - **i32 → -1**: `headValue`, `pop`, `peek` y `dequeue`, que son las lecturas
-//     que pueden fallar, mientras su cuerpo sea un esqueleto.
-//   - **bool → false**: `isEmpty` y `remove`.
-//   - **usize → 0**: `len`; el centinela -1 no cabe en un entero sin signo.
+// Indicadores de fallo (valores representables, sin excepciones):
+//   - **i32 → -1**: `headValue`, `pop`, `peek` y `dequeue` cuando la estructura
+//     está vacía; `valueOf` y `len` devuelven su valor real.
+//   - **bool → false**: `remove` cuando el valor no estaba.
 //   - **Solo los nodos y los enlaces usan nulo**: `next` es `?*Node` y `null` es la
 //     ausencia de enlace. Zig no tiene excepciones: el agotamiento de memoria
 //     viaja por el error union `!void` de las inserciones, que es la firma del
 //     borrador.
 //
-// `init` de la especificación: `Node.init(valor)` deja la celda con su valor y sin
-// enlace, y `LinkedList.init(allocator)` —igual `Stack` y `Queue`— deja la
-// estructura vacía. Los `init` quedan implementados y el resto de los cuerpos son
-// esqueletos con el centinela de su tipo: la implementación es el paso 5.
+// Mutabilidad y memoria: las tres estructuras mutan en sitio y reservan cada celda
+// con el `Allocator` que reciben en `init`, así que cada escenario trabaja con una
+// instancia, la usa y la suelta con `deinit` (que recorre la cadena y libera las
+// celdas).
+//
+// Complejidad: O(1) en `headValue`, `insertHead`, `insertTail`, `push`, `pop`,
+// `peek`, `enqueue`, `dequeue`, `isEmpty` y `len` —las estructuras guardan sus
+// punteros (cabeza/cola, cima, frente/final) y su contador— y O(n) en `remove` y
+// en los `deinit`, como pide la especificación.
 //
 // Nombres: `camelCase` como el borrador (`insertHead`, `isEmpty`, `headValue`,
 // `nextOf`). El borrador de `Node` declaraba el campo `value` y **también** un
@@ -52,16 +56,14 @@ pub const Node = struct {
         };
     }
 
-    /// Esqueleto: valor de la celda.
+    /// Valor de la celda. No muta.
     pub fn valueOf(self: *const Node) i32 {
-        _ = self;
-        return -1;
+        return self.value;
     }
 
-    /// Esqueleto: enlace a la celda siguiente, o null cuando no hay ninguna.
+    /// Enlace a la celda siguiente, o null cuando no hay ninguna.
     pub fn nextOf(self: *const Node) ?*Node {
-        _ = self;
-        return null;
+        return self.next;
     }
 };
 
@@ -87,46 +89,86 @@ pub const LinkedList = struct {
         };
     }
 
-    /// Esqueleto: suelta todos los nodos de la lista. O(n).
+    /// Suelta todos los nodos de la lista. O(n).
     pub fn deinit(self: *LinkedList) void {
-        _ = self;
+        var current = self.head;
+        while (current) |node| {
+            const next = node.next;
+            self.allocator.destroy(node);
+            current = next;
+        }
+        self.head = null;
+        self.tail = null;
+        self.count = 0;
     }
 
-    /// Esqueleto: valor de la cabeza, o -1 cuando la lista está vacía. No muta.
+    /// Valor de la cabeza, o -1 cuando la lista está vacía. No muta.
     pub fn headValue(self: *const LinkedList) i32 {
-        _ = self;
-        return -1;
+        const head = self.head orelse return -1;
+        return head.value;
     }
 
-    /// Esqueleto: true solo si no hay nodos.
+    /// true solo si no hay nodos.
     pub fn isEmpty(self: *const LinkedList) bool {
-        _ = self;
-        return false;
+        return self.head == null;
     }
 
-    /// Esqueleto: número de nodos. Es `usize`, así que devuelve 0.
+    /// Número de nodos. O(1) sobre el contador.
     pub fn len(self: *const LinkedList) usize {
-        _ = self;
-        return 0;
+        return self.count;
     }
 
-    /// Esqueleto: inserta al principio. O(1). Falla solo si no hay memoria.
+    /// Inserta al principio. O(1). Falla solo si no hay memoria.
     pub fn insertHead(self: *LinkedList, value: i32) !void {
-        _ = self;
-        _ = value;
+        const new_head = try self.allocator.create(Node);
+        new_head.* = Node{
+            .value = value,
+            .next = self.head,
+        };
+        self.head = new_head;
+        if (self.tail == null) {
+            self.tail = new_head;
+        }
+        self.count += 1;
     }
 
-    /// Esqueleto: inserta al final. O(1). Falla solo si no hay memoria.
+    /// Inserta al final. O(1). Falla solo si no hay memoria.
     pub fn insertTail(self: *LinkedList, value: i32) !void {
-        _ = self;
-        _ = value;
+        const new_rear = try self.allocator.create(Node);
+        new_rear.* = Node{
+            .value = value,
+            .next = null,
+        };
+        if (self.tail) |tail| {
+            tail.next = new_rear;
+        } else {
+            self.head = new_rear;
+        }
+        self.tail = new_rear;
+        self.count += 1;
     }
 
-    /// Esqueleto: borra la primera aparición; false cuando el valor no estaba.
-    /// O(n).
+    /// Borra la primera aparición; false cuando el valor no estaba. O(n).
     pub fn remove(self: *LinkedList, value: i32) bool {
-        _ = self;
-        _ = value;
+        var current = self.head;
+        var prev: ?*Node = null;
+        while (current) |node| {
+            if (node.value == value) {
+                if (prev) |p| {
+                    p.next = node.next;
+                } else {
+                    self.head = node.next;
+                }
+                if (self.tail == node) {
+                    self.tail = prev;
+                }
+                self.allocator.destroy(node);
+                self.count -= 1;
+                return true;
+            }
+            prev = current;
+            current = node.next;
+        }
         return false;
     }
 };
@@ -151,39 +193,59 @@ pub const Stack = struct {
         };
     }
 
-    /// Esqueleto: suelta todos los nodos de la pila. O(n).
+    /// Suelta todos los nodos de la pila. O(n).
     pub fn deinit(self: *Stack) void {
-        _ = self;
+        var current = self.top;
+        while (current) |node| {
+            const next = node.next;
+            self.allocator.destroy(node);
+            current = next;
+        }
+        self.top = null;
+        self.count = 0;
     }
 
-    /// Esqueleto: true solo si no hay nodos.
+    /// true solo si no hay nodos.
     pub fn isEmpty(self: *const Stack) bool {
-        _ = self;
-        return false;
+        return self.top == null;
     }
 
-    /// Esqueleto: número de nodos. Es `usize`, así que devuelve 0.
+    /// Número de nodos. O(1) sobre el contador.
     pub fn len(self: *const Stack) usize {
-        _ = self;
-        return 0;
+        return self.count;
     }
 
-    /// Esqueleto: apila sobre la cima. O(1). Falla solo si no hay memoria.
+    /// Apila sobre la cima. O(1). Falla solo si no hay memoria.
     pub fn push(self: *Stack, value: i32) !void {
-        _ = self;
-        _ = value;
+        const new_top = try self.allocator.create(Node);
+        new_top.* = Node{
+            .value = value,
+            .next = self.top,
+        };
+        self.top = new_top;
+        self.count += 1;
     }
 
-    /// Esqueleto: desapila el valor de la cima, o -1 cuando está vacía. O(1).
+    /// Desapila el valor de la cima, o -1 cuando está vacía. O(1).
     pub fn pop(self: *Stack) i32 {
-        _ = self;
-        return -1;
+        if (self.top) |node| {
+            self.top = node.next;
+            self.count -= 1;
+            const value = node.value;
+            self.allocator.destroy(node);
+            return value;
+        } else {
+            return -1;
+        }
     }
 
-    /// Esqueleto: valor de la cima, o -1 cuando está vacía. No muta.
+    /// Valor de la cima, o -1 cuando está vacía. No muta.
     pub fn peek(self: *const Stack) i32 {
-        _ = self;
-        return -1;
+        if (self.top) |node| {
+            return node.value;
+        } else {
+            return -1;
+        }
     }
 };
 
@@ -210,38 +272,67 @@ pub const Queue = struct {
         };
     }
 
-    /// Esqueleto: suelta todos los nodos de la cola. O(n).
+    /// Suelta todos los nodos de la cola. O(n).
     pub fn deinit(self: *Queue) void {
-        _ = self;
+        var current = self.front;
+        while (current) |node| {
+            const next = node.next;
+            self.allocator.destroy(node);
+            current = next;
+        }
+        self.front = null;
+        self.rear = null;
+        self.count = 0;
     }
 
-    /// Esqueleto: true solo si no hay nodos.
+    /// true solo si no hay nodos.
     pub fn isEmpty(self: *const Queue) bool {
-        _ = self;
-        return false;
+        return self.front == null;
     }
 
-    /// Esqueleto: número de nodos. Es `usize`, así que devuelve 0.
+    /// Número de nodos. O(1) sobre el contador.
     pub fn len(self: *const Queue) usize {
-        _ = self;
-        return 0;
+        return self.count;
     }
 
-    /// Esqueleto: encola por el final. O(1). Falla solo si no hay memoria.
+    /// Encola por el final. O(1). Falla solo si no hay memoria.
     pub fn enqueue(self: *Queue, value: i32) !void {
-        _ = self;
-        _ = value;
+        const new_node = try self.allocator.create(Node);
+        new_node.* = Node{
+            .value = value,
+            .next = null,
+        };
+        if (self.rear) |rear_node| {
+            rear_node.next = new_node;
+        } else {
+            self.front = new_node;
+        }
+        self.rear = new_node;
+        self.count += 1;
     }
 
-    /// Esqueleto: desencola el valor del frente, o -1 cuando está vacía. O(1).
+    /// Desencola el valor del frente, o -1 cuando está vacía. O(1).
     pub fn dequeue(self: *Queue) i32 {
-        _ = self;
-        return -1;
+        if (self.front) |front_node| {
+            self.front = front_node.next;
+            if (self.front == null) {
+                self.rear = null;
+            }
+            self.count -= 1;
+            const value = front_node.value;
+            self.allocator.destroy(front_node);
+            return value;
+        } else {
+            return -1;
+        }
     }
 
-    /// Esqueleto: valor del frente, o -1 cuando está vacía. No muta.
+    /// Valor del frente, o -1 cuando está vacía. No muta.
     pub fn peek(self: *const Queue) i32 {
-        _ = self;
-        return -1;
+        if (self.front) |front_node| {
+            return front_node.value;
+        } else {
+            return -1;
+        }
     }
 };
