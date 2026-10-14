@@ -1,0 +1,4 @@
+# Salidas de la compilación / Compilation output
+/hello_world
+.zig-cache/
+zig-out/
