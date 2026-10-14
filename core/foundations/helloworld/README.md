@@ -8,7 +8,7 @@ Implementación de la especificación [01_Hello_World](https://yorche3.github.io
 
 | Archivo | Propósito |
 |---------|-----------|
-| [`hello_world.zig`](hello_world.zig) | Código fuente: imprime `"Hello, world! from Zig"` en la salida estándar. |
+| [`hello_world.zig`](hello_world.zig) | Código fuente: imprime `"Hello, World! from Zig!"` en la salida estándar. |
 
 **Estructura de directorios esperada:**
 
@@ -48,7 +48,7 @@ No se requieren archivos de configuración para este ejercicio.
 const std = @import("std");
 
 pub fn main() void {
-    std.debug.print("Hello, world! from Zig\n", .{});
+    std.debug.print("Hello, World! from Zig\n", .{});
 }
 ```
 
@@ -98,7 +98,7 @@ zig build-exe hello_world.zig -femit-bin=/tmp/zig-hello-world
 ### Salida esperada / Expected output
 
 ```text
-Hello, world! from Zig
+Hello, World! from Zig
 ```
 
 La salida fue verificada ejecutando el archivo con `zig run` y ejecutando el binario generado con Zig 0.16.0 en Linux/WSL2.
